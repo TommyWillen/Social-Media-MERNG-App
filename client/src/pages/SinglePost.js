@@ -1,7 +1,15 @@
-import { useContext } from "react";
-import { FETCH_POST_QUERY } from "../utils/graphql";
-import { useQuery } from "@apollo/client";
-import { Button, Card, Grid, Icon, Image, Label } from "semantic-ui-react";
+import { useContext, useState, useRef } from "react";
+import { CREATE_COMMENT_MUTATION, FETCH_POST_QUERY } from "../utils/graphql";
+import { useMutation, useQuery } from "@apollo/client";
+import {
+  Button,
+  Card,
+  Form,
+  Grid,
+  Icon,
+  Image,
+  Label,
+} from "semantic-ui-react";
 import moment from "moment";
 
 import LikeButton from "../components/LikeButton";
@@ -10,20 +18,31 @@ import DeleteButton from "../components/DeleteButton";
 
 const SinglePost = (props) => {
   const { user } = useContext(AuthContext);
-
   const postId = props.match.params.postId;
+  const commentInputRef = useRef(null)
 
-  const { loading,
-    data,
-  } = useQuery(FETCH_POST_QUERY, {
+  const [comment, setComment] = useState("");
+
+  const { loading, data } = useQuery(FETCH_POST_QUERY, {
     variables: {
       postId,
     },
   });
 
+  const [submitComment] = useMutation(CREATE_COMMENT_MUTATION, {
+    update() {
+      setComment("");
+      commentInputRef.current.blur()
+    },
+    variables: {
+      postId,
+      body: comment,
+    },
+  });
+
   const deletePostCallback = () => {
-        props.history.push("/")
-}
+    props.history.push("/");
+  };
 
   let postMarkup;
 
@@ -41,7 +60,7 @@ const SinglePost = (props) => {
       commentCount,
     } = data.getPost;
 
-     postMarkup = (
+    postMarkup = (
       <Grid>
         <Grid.Row>
           <Grid.Column width={2}>
@@ -70,14 +89,46 @@ const SinglePost = (props) => {
                     <Icon name="comments" />
                   </Button>
                   <Label basic color="blue" pointing="left">
-                  {commentCount}
-                </Label>
+                    {commentCount}
+                  </Label>
                 </Button>
                 {user && user.username === username && (
-                    <DeleteButton postId={id} callback={deletePostCallback} />
+                  <DeleteButton postId={id} callback={deletePostCallback} />
                 )}
               </Card.Content>
             </Card>
+            <Card fluid>
+              <Card.Content>
+              <Card.Description>Post a comment</Card.Description>
+              <Form>
+                <div className="ui action input fluid">
+                  <input
+                    type="text"
+                    placeholder="Comment..."
+                    name="comment"
+                    value={comment}
+                    onChange={(event) => setComment(event.target.value)}
+                    ref={commentInputRef}
+                  />
+                  <button type="submit" className="ui button teal" disabled={comment.trim() === ""} onClick={submitComment}>
+                    Submit
+                  </button>
+                </div>
+              </Form>
+              </Card.Content>
+            </Card>
+            {comments.map((comment) => (
+              <Card fluid key={comment.id}>
+                <Card.Content>
+                  {user && user.username === comment.username && (
+                    <DeleteButton postId={id} commentId={comment.id} />
+                  )}
+                  <Card.Header>{comment.username}</Card.Header>
+                  <Card.Meta>{moment(comment.createdAt).fromNow()}</Card.Meta>
+                  <Card.Description>{comment.body}</Card.Description>
+                </Card.Content>
+              </Card>
+            ))}
           </Grid.Column>
         </Grid.Row>
       </Grid>
